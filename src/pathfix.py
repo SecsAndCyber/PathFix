@@ -5,12 +5,18 @@ CONFIG="path.config"
 
 config = ConfigParser.RawConfigParser(allow_no_value=True)
 
-def WritePath(value):
+def WriteVar(value, Var):
     Reg = __import__("_winreg")
+    win32gui = __import__("win32gui")
+    win32con = __import__("win32con")
     path = r'SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
     reg = Reg.ConnectRegistry(None, Reg.HKEY_LOCAL_MACHINE)
-    key = Reg.OpenKey(reg, path, 0, Reg.KEY_ALL_ACCESS)    
-    Reg.SetValueEx(key, 'PATH', 0, Reg.REG_EXPAND_SZ, value)
+    key = Reg.OpenKey(reg, path, 0, Reg.KEY_ALL_ACCESS)  
+    if Var:
+        Reg.SetValueEx(key, Var, 0, Reg.REG_EXPAND_SZ, value)
+    else:
+        Reg.DeleteValue(key, Var)
+    win32gui.SendMessage(win32con.HWND_BROADCAST, win32con.WM_SETTINGCHANGE, 0, 'Environment')
 
 def main():
     parser = argparse.ArgumentParser()
@@ -20,6 +26,8 @@ def main():
     parser.add_argument("-w","--write",action="store_true")
     parser.add_argument("-p","--preview",action="store_true")
     args = parser.parse_args()
+    
+    config.read(args.CONFIG)
 
     if args.list:
         for env in os.environ["PATH"].split(";"):
@@ -27,9 +35,10 @@ def main():
         return
     
     if args.preview:
-        config.read(args.CONFIG)
-        for key, env in config.items('PATH'):
-            print env
+        for section in config.sections():
+            print section
+            for key, env in config.items(section):
+                print env
         return
     
     if args.write:
@@ -45,10 +54,12 @@ def main():
     
     if args.apply:
         config.read(args.CONFIG)
-        path_var = ""
-        for key, env in config.items('PATH'):
-            path_var += "%s;" % env
-        WritePath(path_var)
+        for section in config.sections():
+            path_var = ""
+            for key, env in config.items(section):
+                path_var += "%s;" % env
+            path_var = path_var.strip(";")
+            WriteVar(path_var, section)
         return
     
     pass
