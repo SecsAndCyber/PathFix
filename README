@@ -1,4 +1,5 @@
 usage: pathfix.py [-h] [-a APPLY] [-l LIST] [-e EXPORT] [-p PREVIEW] [-c]
+                  [-i INSTALL]
 
 optional arguments:
   -h, --help  show this help message and exit
@@ -7,3 +8,4 @@ optional arguments:
   -e EXPORT   writes current environment variables to config
   -p PREVIEW  parses and prints the config without modifying the environment
   -c          Limit applied changes to current user (Defaults to all users)
+  -i INSTALL  apply the config to environment variables on every startup
