@@ -1,4 +1,4 @@
-import sys, os, argparse
+import sys, os, os.path, argparse
 import ConfigParser
 
 config = ConfigParser.RawConfigParser(allow_no_value=True)
@@ -90,6 +90,37 @@ def ApplyConfig(ConfigPath, CurrentUser=False):
         path_var = path_var.strip(";")
         WriteVar(path_var, section, CurrentUser)
     
+def InstallConfig(ConfigPath, CurrentUser=True):
+    Reg = __import__("_winreg")
+    
+    if CurrentUser:
+        path = r'Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders'
+        reg = Reg.ConnectRegistry(None, Reg.HKEY_CURRENT_USER)
+        KeyName = 'HKEY_CURRENT_USER'
+    else:
+        raise ArgumentError("Only user installation is supported at this time")
+        
+    Startup = ""
+    with Reg.OpenKey(reg, path, 0, Reg.KEY_ALL_ACCESS) as key:
+        index = 0
+        try:
+            while True:
+                v_name, v_data, v_data_type = Reg.EnumValue(key, index)
+                if v_name.lower() == "startup":
+                    Startup = v_data
+                index += 1        
+        except WindowsError:
+            pass
+            
+    if Startup:
+        print "do stuff", Startup
+        StartupBat = os.path.join(Startup, "pathfix.bat")
+        
+        # ToDo: detect proper call to python!
+        with open(StartupBat, "w") as StartupBatFile:
+            StartupBatFile.write("python %s -c -a %s\n" % ( sys.argv[0], ConfigPath ))
+    
+    
 def main():
     parser = argparse.ArgumentParser()
     
@@ -98,6 +129,7 @@ def main():
     parser.add_argument("-e",action="store", dest='export', help='writes current environment variables to config')
     parser.add_argument("-p",action="store", dest='preview', help='parses and prints the config without modifying the environment')
     parser.add_argument("-c",action="store_true", dest='current', default=False, help='Limit applied changes to current user (Defaults to all users)')
+    parser.add_argument("-i",action="store", dest='install', help='apply the config to environment variables on every startup')
     args = parser.parse_args()
     
     if args.list:
@@ -114,6 +146,10 @@ def main():
     
     if args.apply:
         ApplyConfig(args.apply, CurrentUser=args.current)
+        return
+        
+    if args.install:
+        InstallConfig(args.install, CurrentUser=args.current)
         return
     
     parser.parse_args('--help'.split())
