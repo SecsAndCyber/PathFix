@@ -8,6 +8,8 @@ def WriteVar(value, Var, CurrentUser=False):
     if not Var:
         raise ArgumentError
     Reg = __import__("_winreg")
+    win32gui = __import__("win32gui")
+    win32con = __import__("win32con")
     if CurrentUser:
         path = r'Environment'
         reg = Reg.ConnectRegistry(None, Reg.HKEY_CURRENT_USER)
@@ -25,6 +27,7 @@ def WriteVar(value, Var, CurrentUser=False):
             else:
                 print r'Deleting "%s" from "%s\%s"' % ( Var, KeyName, path )
                 Reg.DeleteValue(key, Var)
+            win32gui.SendMessage(win32con.HWND_BROADCAST, win32con.WM_SETTINGCHANGE, 0, 'Environment')
         except WindowsError as werr:
             print 'Unabled to succeed: \n\t%s' % werr
 
