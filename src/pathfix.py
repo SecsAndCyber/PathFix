@@ -1,15 +1,24 @@
-import sys, os, os.path, argparse
+import sys, os, os.path, argparse, ctypes
+from ctypes.wintypes import HWND, UINT, WPARAM, LPARAM, LPVOID, c_wchar_p
 import ConfigParser
+LRESULT = LPARAM
 
 config = ConfigParser.RawConfigParser(allow_no_value=True)
+
+def _NotifyWindows():
+    SendMessageTimeout = ctypes.windll.user32.SendMessageTimeoutW
+    SendMessageTimeout.argtypes = HWND, UINT, WPARAM, c_wchar_p, UINT, UINT, UINT
+    SendMessageTimeout.restype = LRESULT
+    HWND_BROADCAST = 0xFFFF
+    WM_SETTINGCHANGE = 0x1A
+    SMTO_NORMAL = 0x000
+    SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, 'Environment', SMTO_NORMAL, 10, 0)
 
 def WriteVar(value, Var, CurrentUser=False):
     """ Help? """
     if not Var:
         raise ArgumentError
     Reg = __import__("_winreg")
-    win32gui = __import__("win32gui")
-    win32con = __import__("win32con")
     if CurrentUser:
         path = r'Environment'
         reg = Reg.ConnectRegistry(None, Reg.HKEY_CURRENT_USER)
@@ -27,7 +36,7 @@ def WriteVar(value, Var, CurrentUser=False):
             else:
                 print r'Deleting "%s" from "%s\%s"' % ( Var, KeyName, path )
                 Reg.DeleteValue(key, Var)
-            win32gui.SendMessage(win32con.HWND_BROADCAST, win32con.WM_SETTINGCHANGE, 0, 'Environment')
+            _NotifyWindows()
         except WindowsError as werr:
             print 'Unabled to succeed: \n\t%s' % werr
 
