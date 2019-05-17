@@ -1,6 +1,9 @@
 import sys, os, os.path, argparse, ctypes
 from ctypes.wintypes import HWND, UINT, WPARAM, LPARAM, LPVOID, c_wchar_p
 import ConfigParser
+import logging
+import time
+CUR_DIR = os.path.dirname(os.path.abspath(__file__))
 LRESULT = LPARAM
 
 config = ConfigParser.RawConfigParser(allow_no_value=True)
@@ -46,7 +49,9 @@ def ListVariable(Env):
         for env in os.environ[Env].split(";"):
             print '  ',env
     else:
-        print '%s is not a recongnized environment variable %s' % (Env, os.environ.keys)
+        msg = '%s is not a recognized environment variable %s' % (Env, os.environ.keys)
+        print msg
+        logging.warn(msg)
     
 def PreviewConfig(ConfigPath):
     config.read(ConfigPath)
@@ -125,12 +130,19 @@ def InstallConfig(ConfigPath, CurrentUser=True):
             pass
             
     if Startup:
-        print "do stuff", Startup
+        logging.info("Saving setup batch file to %s", Startup)
+        PythonFilePath = os.path.abspath(os.path.dirname(sys.argv[0]))
         StartupBat = os.path.join(Startup, "pathfix.bat")
-        
+        if not os.path.splitdrive(StartupBat)[0] == os.path.splitdrive(PythonFilePath)[0]:
+            cd_args = "/d "
+        else:
+            cd_args = ""
         # ToDo: detect proper call to python!
         with open(StartupBat, "w") as StartupBatFile:
+            StartupBatFile.write("cd {}{}\n".format(cd_args, PythonFilePath))
             StartupBatFile.write("python %s -c -a %s\n" % ( sys.argv[0], ConfigPath ))
+        with open(StartupBat, "r") as StartupBatFile:
+            logging.info(StartupBatFile.read())
     
     
 def main():
@@ -142,8 +154,18 @@ def main():
     parser.add_argument("-p",action="store", dest='preview', help='parses and prints the config without modifying the environment')
     parser.add_argument("-c",action="store_true", dest='current', default=False, help='Limit applied changes to current user (Defaults to all users)')
     parser.add_argument("-i",action="store", dest='install', help='apply the config to environment variables on every startup')
+    parser.add_argument("-v",action="count", dest='verbose', help='logging verbosity')
     args = parser.parse_args()
     
+    if args.verbose > 2:
+        logging.basicConfig(level=logging.INFO)
+    elif args.verbose:
+        logging.basicConfig(level=logging.WARN)
+    else:
+        logging.basicConfig(filename=os.path.join(CUR_DIR, 'pathfix.log'), level=logging.INFO)
+        
+        
+    logging.info("Running %s at %s", "{}".format(args), time.ctime())
     if args.list:
         ListVariable(args.list)
         return
@@ -164,7 +186,7 @@ def main():
         InstallConfig(args.install, CurrentUser=args.current)
         return
     
-    parser.parse_args('--help'.split())
+    parser.parse_args(['--help'])
     
 if __name__ == "__main__":
     main()
