@@ -91,9 +91,14 @@ def ExportToConfig(ConfigPath, EnvVars = None, CurrentUser=False):
             continue
             
         config.add_section(Envs)
-        for x, env in enumerate(os.environ[Envs].split(";")):
+        Env_set = set()
+        index = 0
+        for env in os.environ[Envs].split(";"):
+            if env.lower() in Env_set: continue
+            Env_set.add(env.lower())
             if env:
-                config.set(Envs, str(x), env)
+                config.set(Envs, str(index), env)
+                index += 1
         
     with open(ConfigPath, "w") as configfile:
         config.write(configfile)
