@@ -1,4 +1,5 @@
 import sys, os, os.path, argparse, ctypes
+from argparse import ArgumentError
 from ctypes.wintypes import HWND, UINT, WPARAM, LPARAM, LPVOID, c_wchar_p
 import ConfigParser
 import logging
@@ -34,31 +35,31 @@ def WriteVar(value, Var, CurrentUser=False):
     with Reg.OpenKey(reg, path, 0, Reg.KEY_ALL_ACCESS) as key:
         try:
             if value:
-                print r'Writing "%s" to "%s\%s"' % ( Var, KeyName, path )
+                logging.info(r'Writing "%s" to "%s\%s"' % ( Var, KeyName, path ))
                 Reg.SetValueEx(key, Var, 0, Reg.REG_EXPAND_SZ, value)
             else:
-                print r'Deleting "%s" from "%s\%s"' % ( Var, KeyName, path )
+                logging.warn(r'Deleting "%s" from "%s\%s"' % ( Var, KeyName, path ))
                 Reg.DeleteValue(key, Var)
             _NotifyWindows()
         except WindowsError as werr:
-            print 'Unabled to succeed: \n\t%s' % werr
+            logging.error('Unabled to succeed: \n\t%s' % werr)
 
 def ListVariable(Env):
     if Env in os.environ:
-        print Env
+        print(Env)
         for env in os.environ[Env].split(";"):
-            print '  ',env
+            print('  ', env)
     else:
         msg = '%s is not a recognized environment variable %s' % (Env, os.environ.keys)
-        print msg
+        print(msg)
         logging.warn(msg)
     
 def PreviewConfig(ConfigPath):
     config.read(ConfigPath)
     for section in config.sections():
-        print section
+        print(section)
         for key, env in config.items(section):
-            print '  ',env
+            print('  ', env)
     
 def ExportToConfig(ConfigPath, EnvVars = None, CurrentUser=False):
     """ 
@@ -74,16 +75,16 @@ def ExportToConfig(ConfigPath, EnvVars = None, CurrentUser=False):
         Reg = __import__("_winreg")
         path = r'Environment'
         reg = Reg.ConnectRegistry(None, Reg.HKEY_CURRENT_USER)
-        KeyName = 'HKEY_CURRENT_USER'
         with Reg.OpenKey(reg, path, 0, Reg.KEY_ALL_ACCESS) as key:
             index = 0
             try:
                 while True:
                     v_name, v_data, v_data_type = Reg.EnumValue(key, index)
-                    print v_name, index
+                    logging.info('{}: {}'. format(index, v_name))
                     EnvVars.append(v_name)
                     index += 1        
-            except WindowsError:
+            except WindowsError as e:
+                logging.info('error: {}'.format(e))
                 pass
     
     for Envs in os.environ:
@@ -118,7 +119,6 @@ def InstallConfig(ConfigPath, CurrentUser=True):
     if CurrentUser:
         path = r'Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders'
         reg = Reg.ConnectRegistry(None, Reg.HKEY_CURRENT_USER)
-        KeyName = 'HKEY_CURRENT_USER'
     else:
         raise ArgumentError("Only user installation is supported at this time")
         
@@ -131,8 +131,8 @@ def InstallConfig(ConfigPath, CurrentUser=True):
                 if v_name.lower() == "startup":
                     Startup = v_data
                 index += 1        
-        except WindowsError:
-            pass
+        except WindowsError as e:
+            logging.info('error: {}'.format(e))
             
     if Startup:
         logging.info("Saving setup batch file to %s", Startup)
