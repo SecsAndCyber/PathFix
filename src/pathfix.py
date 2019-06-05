@@ -1,13 +1,23 @@
 import sys, os, os.path, argparse, ctypes
 from argparse import ArgumentError
-from ctypes.wintypes import HWND, UINT, WPARAM, LPARAM, LPVOID, c_wchar_p
-import ConfigParser
+from ctypes.wintypes import HWND, UINT, WPARAM, LPARAM, LPVOID
+from ctypes import c_wchar_p
+try:
+    from ConfigParser import RawConfigParser as ConfigParser
+except ImportError:
+    from configparser import ConfigParser
+    
+try:
+    import winreg as Reg
+except ImportError:
+    import _winreg as Reg
+    
 import logging
 import time
 CUR_DIR = os.path.dirname(os.path.abspath(__file__))
 LRESULT = LPARAM
 
-config = ConfigParser.RawConfigParser(allow_no_value=True)
+config = ConfigParser(allow_no_value=True)
 
 def _NotifyWindows():
     SendMessageTimeout = ctypes.windll.user32.SendMessageTimeoutW
@@ -22,7 +32,7 @@ def WriteVar(value, Var, CurrentUser=False):
     """ Help? """
     if not Var:
         raise ArgumentError
-    Reg = __import__("_winreg")
+        
     if CurrentUser:
         path = r'Environment'
         reg = Reg.ConnectRegistry(None, Reg.HKEY_CURRENT_USER)
@@ -72,7 +82,6 @@ def ExportToConfig(ConfigPath, EnvVars = None, CurrentUser=False):
     if CurrentUser:
         if not EnvVars:
             EnvVars = []
-        Reg = __import__("_winreg")
         path = r'Environment'
         reg = Reg.ConnectRegistry(None, Reg.HKEY_CURRENT_USER)
         with Reg.OpenKey(reg, path, 0, Reg.KEY_ALL_ACCESS) as key:
@@ -98,6 +107,7 @@ def ExportToConfig(ConfigPath, EnvVars = None, CurrentUser=False):
             if env.lower() in Env_set: continue
             Env_set.add(env.lower())
             if env:
+                logging.info('{}: {}'. format(index, env))
                 config.set(Envs, str(index), env)
                 index += 1
         
@@ -159,10 +169,10 @@ def main():
     parser.add_argument("-p",action="store", dest='preview', help='parses and prints the config without modifying the environment')
     parser.add_argument("-c",action="store_true", dest='current', default=False, help='Limit applied changes to current user (Defaults to all users)')
     parser.add_argument("-i",action="store", dest='install', help='apply the config to environment variables on every startup')
-    parser.add_argument("-v",action="count", dest='verbose', help='logging verbosity')
+    parser.add_argument("-v",action="count", default=0, dest='verbose', help='logging verbosity')
     args = parser.parse_args()
-    
-    if args.verbose > 2:
+        
+    if args.verbose >= 2:
         logging.basicConfig(level=logging.INFO)
     elif args.verbose:
         logging.basicConfig(level=logging.WARN)
